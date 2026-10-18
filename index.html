@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Human Body — Interactive 3D Anatomy</title>
+    <meta name="description" content="An interactive 3D anatomy model. Click any part of the body to learn what it is and how it works." />
+    <link rel="stylesheet" href="/src/ui.css" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="hb-main">
+      <section class="hb-fig">
+        <figure class="hb-plate">
+          <div class="hb-corner" data-corner="fig">Fig 1</div>
+          <div class="hb-corner" data-corner="title" data-title>Male body</div>
+          <div class="hb-stage" tabindex="0" role="application" aria-label="3D anatomy model. Drag to turn, scroll to zoom, click a part to read about it.">
+            <canvas class="hb-canvas"></canvas>
+            <div class="hb-tip" hidden></div>
+            <div class="hb-loading" role="status"><div class="hb-skel" aria-hidden="true"></div><p class="hb-loading-label"><span>Loading anatomy</span> <b class="hb-progress">0%</b></p></div>
+          </div>
+          <div class="hb-layers" role="group" aria-label="Layers">
+            <button type="button" data-layer="skin" aria-pressed="true">Skin</button>
+            <button type="button" data-layer="muscle" aria-pressed="true">Muscles</button>
+            <button type="button" data-layer="bone" aria-pressed="true">Skeleton</button>
+            <button type="button" data-layer="organ" aria-pressed="false">Organs</button>
+            <button type="button" data-layer="vessel" aria-pressed="false">Vessels</button>
+          </div>
+          <div class="hb-corner" data-corner="hint">Click · drag · scroll</div>
+          <div class="hb-corner" data-corner="readout" data-readout>—</div>
+        </figure>
+      </section>
+      <section class="hb-side">
+        <header class="hb-head">
+          <p class="hb-kicker">Interactive anatomy</p>
+          <h1>The Human Body</h1>
+          <div class="hb-sex" role="radiogroup" aria-label="Body">
+            <button type="button" role="radio" data-sex="male" aria-checked="true">Male</button>
+            <button type="button" role="radio" data-sex="female" aria-checked="false">Female</button>
+          </div>
+          <p class="hb-lede">A full 3D model of an adult body: 441 muscles, 303 bones and cartilages, every organ and vessel. Click any part of the body, or pick one below, to see what it is and how it works. Read the explanation or have it read aloud. Peel layers away with the switches under the model.</p>
+        </header>
+        <nav class="hb-chips" aria-label="Body parts"></nav>
+        <p class="hb-credit">
+          3D model: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (simplified and recoloured). Female body: skin, breasts, uterus, ovaries, fallopian tubes, bladder, lungs, liver and pelvis from the
+          <a href="https://humanatlas.io/3d-reference-library" target="_blank" rel="noopener">Human Reference Atlas</a> 3D reference organs (Visible Human Female), HuBMAP, licensed under
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>; its muscles and skeleton are the BodyParts3D model fitted to that body. Facts drawn from
+          <a href="https://www.innerbody.com/htm/body.html" target="_blank" rel="noopener">innerbody.com</a>.
+        </p>
+      </section>
+    </main>
+    <aside class="hb-panel" aria-hidden="true" tabindex="-1" data-mode="read">
+      <div class="hb-panel-top">
+        <nav class="hb-modes" aria-label="Panel mode">
+          <button type="button" data-mode="read" aria-pressed="true">Read</button>
+          <button type="button" data-mode="listen" aria-pressed="false">Listen</button>
+        </nav>
+        <button class="hb-close" type="button" aria-label="Close panel">×</button>
+        <div class="hb-player" data-state="idle">
+          <button type="button" class="hb-play" data-say="play" aria-label="Play"><i aria-hidden="true"></i><span>Play</span></button>
+          <button type="button" class="hb-stop" data-say="stop" aria-label="Stop" disabled>■</button>
+          <span class="hb-count" data-say="count"></span>
+          <span class="hb-rate-host" data-say="rate"></span>
+          <span class="hb-voice-host" data-say="voice"></span>
+          <p class="hb-say-note" data-say="note" hidden></p>
+        </div>
+      </div>
+      <div class="hb-panel-scroll"></div>
+    </aside>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+
+/* Page: white ground, black type. The figure keeps the kit's light tokens, flattened to white. */
+.iso[data-theme="light"]{--anatomy-page:#ffffff;--anatomy-card:#ffffff;--anatomy-paper:#ffffff;--anatomy-text:#111111;--anatomy-strong:#000000;--anatomy-muted:#6b6b6b;--anatomy-weight:.75px}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;background:#fff;color:#000;font:15px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#000}
+.hb-app{min-height:100vh}
+.hb-main{display:grid;grid-template-columns:auto minmax(300px,400px);gap:56px;align-items:start;justify-content:center;width:calc(100% - 48px);margin:0 auto;padding:24px 0}
+.hb-fig{width:min(620px,calc((100vh - 48px) * .7));position:sticky;top:24px}
+.hb-side{padding-top:20px}
+.hb-head{margin-bottom:28px}
+.hb-kicker{margin:0 0 6px;font-family:var(--anatomy-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6b6b6b}
+.hb-head h1{margin:0;font:500 44px/1.05 "EB Garamond",Garamond,"Iowan Old Style",Georgia,serif;letter-spacing:-.01em}
+.hb-lede{margin:10px 0 0;max-width:52ch;color:#333}
+.iso-figure{margin:0}
+.iso-plate{box-shadow:0 0 0 1px #d9d9d9;background:#fff;padding:44px 16px 40px}
+.iso-plate-corner{color:#6b6b6b}
+.iso-plate-corner[data-corner="readout"],.iso-plate-corner[data-corner="fig"]{color:#000}
+.hb-stage{outline:none;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.hb-stage:focus-visible{box-shadow:0 0 0 2px #000}
+.hb-stage .iso-live [data-name]{transition:filter .2s}
+.hb-stage .iso-live [data-hover]{filter:brightness(1.07) saturate(1.15)}
+.hb-stage .iso-live [data-sel]{filter:saturate(1.2)}
+.hb-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:14px 0 0;font-size:12.5px;color:#333}
+.hb-key{display:inline-flex;align-items:center;gap:7px}
+.hb-swatch{display:inline-block;width:12px;height:12px;flex:none;border-radius:3px;background:var(--anatomy-top);box-shadow:inset 0 -4px 0 var(--anatomy-shade-1),0 0 0 1px var(--anatomy-hi)}
+.hb-chips{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0}
+.hb-chip{display:inline-flex;align-items:center;gap:7px;padding:5px 10px 5px 8px;border:1px solid #d9d9d9;border-radius:999px;background:#fff;color:#000;font:inherit;font-size:12.5px;cursor:pointer}
+.hb-chip:hover{border-color:#000}
+.hb-chip[aria-pressed="true"]{background:#000;color:#fff;border-color:#000}
+.hb-credit{margin:26px 0 0;font-size:12px;color:#6b6b6b}
+
+/* Side panel */
+.hb-panel{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);overflow-y:auto;background:#fff;color:#000;border-left:1px solid #e3e3e3;box-shadow:-24px 0 48px -32px #0000002e;padding:28px 30px 48px;transform:translateX(100%);visibility:hidden;transition:transform .45s var(--anatomy-ease),visibility 0s .45s;z-index:10}
+.hb-panel[aria-hidden="false"]{transform:none;visibility:visible;transition:transform .45s var(--anatomy-ease)}
+.hb-close{position:absolute;top:16px;right:18px;width:34px;height:34px;border:1px solid #e3e3e3;border-radius:999px;background:#fff;color:#000;font-size:20px;line-height:1;cursor:pointer}
+.hb-close:hover{border-color:#000}
+.hb-system{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-family:var(--anatomy-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#555}
+.hb-panel h2{margin:0 40px 10px 0;font:500 34px/1.1 "EB Garamond",Garamond,"Iowan Old Style",Georgia,serif}
+.hb-panel h3{margin:26px 0 8px;font-family:var(--anatomy-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#555}
+.hb-panel p{margin:0 0 10px;color:#111}
+.hb-summary{font-size:16px;line-height:1.55}
+.hb-facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin:18px 0 0;background:#e3e3e3;border:1px solid #e3e3e3}
+.hb-facts div{background:#fff;padding:10px 12px}
+.hb-facts dt{font-family:var(--anatomy-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#6b6b6b}
+.hb-facts dd{margin:2px 0 0;font-weight:600;font-variant-numeric:tabular-nums}
+.hb-parts{margin:0;padding:0;list-style:none;border-top:1px solid #eee}
+.hb-parts li{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+.hb-source{display:inline-block;margin-top:22px;font-weight:600;text-decoration:none;border-bottom:1px solid #000}
+
+@media (max-width:900px){
+  .hb-main{grid-template-columns:1fr;gap:24px;width:min(620px,100% - 32px)}
+  .hb-fig{position:static;width:100%;order:2}
+  .hb-side{display:contents}
+  .hb-head{order:1}.hb-legend{order:3}.hb-chips{order:4}.hb-credit{order:5}
+}
+@media (max-width:720px){
+  .hb-main{padding-top:16px}
+  .hb-head h1{font-size:34px}
+  .hb-panel{top:auto;height:62vh;width:100vw;border-left:0;border-top:1px solid #e3e3e3;border-radius:14px 14px 0 0;transform:translateY(100%)}
+  .hb-panel[aria-hidden="false"]{transform:none}
+}
+@media (prefers-reduced-motion:reduce){.hb-panel{transition:none}}
