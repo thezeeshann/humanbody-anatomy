@@ -6,10 +6,10 @@ const io = new NodeIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuanti
 const doc = await io.read(process.argv[2]);
 for (const node of doc.getRoot().listNodes()) {
   if (!/^lung/.test(node.getName())) continue;
-  const prim = node.getMesh().listPrimitives()[0];
-  const pos = prim.getAttribute("POSITION"), idx = prim.getIndices().getArray();
+  const prim = node.getMesh()!.listPrimitives()[0];
+  const pos = prim.getAttribute("POSITION")!, idx = prim.getIndices()!.getArray()!;
   let area = 0, zero = 0;
-  const p = (i) => pos.getElement(i, []);
+  const p = (i: number) => pos.getElement(i, []);
   for (let i = 0; i < idx.length; i += 3) {
     const [a, b, c] = [p(idx[i]), p(idx[i + 1]), p(idx[i + 2])];
     const u = a.map((v, k) => b[k] - v), v = a.map((x, k) => c[k] - x);

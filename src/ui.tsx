@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 
 // The panel body scrolls inside a ScrollArea, so the native scrollbar is replaced by a thin overlay
-// thumb. Returns the scrolling viewport and the content element that main.js fills.
-export function mountPanelScroll(host) {
+// thumb. Returns the scrolling viewport and the content element that main.ts fills.
+export function mountPanelScroll(host: HTMLElement): { viewport: HTMLElement; body: HTMLElement } {
   const root = createRoot(host);
   flushSync(() =>
     root.render(
@@ -18,12 +18,12 @@ export function mountPanelScroll(host) {
       </ScrollArea>,
     ),
   );
-  return { viewport: host.querySelector("[data-slot='scroll-area-viewport']"), body: host.querySelector(".hb-panel-body") };
+  return { viewport: host.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']")!, body: host.querySelector<HTMLElement>(".hb-panel-body")! };
 }
 
 // The loading placeholder: a standing figure built from shadcn Skeletons, roughly where the model will
 // appear on its stand. Parts are [x, y, w, h, rotate°, rounding] in a 90 × 200 box (x is the centre).
-const FIGURE = [
+const FIGURE: [x: number, y: number, w: number, h: number, rotate: number, rounding: string][] = [
   [45, 0, 18, 25, 0, "rounded-[50%]"], // head
   [45, 22, 8, 10, 0, "rounded-md"], // neck
   [45, 29, 38, 58, 0, "rounded-t-[45%] rounded-b-[30%]"], // chest and belly
@@ -37,7 +37,7 @@ const FIGURE = [
   [34, 190, 11, 7, 0, "rounded-full"], // feet
   [56, 190, 11, 7, 0, "rounded-full"],
 ];
-export function mountLoader(host) {
+export function mountLoader(host: HTMLElement) {
   flushSync(() =>
     createRoot(host).render(
       FIGURE.map(([x, y, w, h, r, round], i) => (
@@ -52,12 +52,31 @@ export function mountLoader(host) {
 }
 
 // A shadcn Select fed from a tiny store, so vanilla code can push items and the value.
-export function mountSelect(host, { label, className = "", minWidth = "min-w-56", onChange, items = [], value = null }) {
-  let state = { items, value };
-  const subs = new Set();
-  const store = {
+export interface SelectItemData {
+  value: string;
+  label: string;
+}
+interface SelectState {
+  items: SelectItemData[];
+  value: string | null;
+}
+export interface SelectStore {
+  get: () => SelectState;
+  sub: (fn: () => void) => () => void;
+  set: (next: Partial<SelectState>) => void;
+}
+interface SelectOptions extends Partial<SelectState> {
+  label: string;
+  className?: string;
+  minWidth?: string;
+  onChange: (value: string) => void;
+}
+export function mountSelect(host: HTMLElement, { label, className = "", minWidth = "min-w-56", onChange, items = [], value = null }: SelectOptions): SelectStore {
+  let state: SelectState = { items, value };
+  const subs = new Set<() => void>();
+  const store: SelectStore = {
     get: () => state,
-    sub: (fn) => (subs.add(fn), () => subs.delete(fn)),
+    sub: (fn) => (subs.add(fn), () => void subs.delete(fn)),
     set: (next) => ((state = { ...state, ...next }), subs.forEach((fn) => fn())),
   };
   function Picker() {
@@ -68,6 +87,7 @@ export function mountSelect(host, { label, className = "", minWidth = "min-w-56"
         items={items}
         value={value}
         onValueChange={(v) => {
+          if (v === null) return;
           store.set({ value: v });
           onChange(v);
         }}

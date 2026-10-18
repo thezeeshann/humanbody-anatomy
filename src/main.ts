@@ -4,23 +4,23 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { computeBoundsTree, acceleratedRaycast } from "three-mesh-bvh";
-import { CONTENT } from "./content.js";
-import { createListener } from "./listen.js";
-import { mountLoader, mountPanelScroll, mountSelect } from "./ui.jsx";
+import { CONTENT, type Region } from "./content.ts";
+import { createListener } from "./listen.ts";
+import { mountLoader, mountPanelScroll, mountSelect } from "./ui.tsx";
 
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
-const stage = document.querySelector(".hb-stage");
-const canvas = document.querySelector(".hb-canvas");
-const tip = document.querySelector(".hb-tip");
-const readout = document.querySelector("[data-readout]");
-const figTitle = document.querySelector("[data-title]");
-const loading = document.querySelector(".hb-loading");
-mountLoader(loading.querySelector(".hb-skel"));
-const progress = document.querySelector(".hb-progress");
-const panel = document.querySelector(".hb-panel");
-const { viewport: panelScroll, body: panelBody } = mountPanelScroll(panel.querySelector(".hb-panel-scroll"));
+const stage = document.querySelector<HTMLElement>(".hb-stage")!;
+const canvas = document.querySelector<HTMLCanvasElement>(".hb-canvas")!;
+const tip = document.querySelector<HTMLElement>(".hb-tip")!;
+const readout = document.querySelector<HTMLElement>("[data-readout]")!;
+const figTitle = document.querySelector<HTMLElement>("[data-title]")!;
+const loading = document.querySelector<HTMLElement>(".hb-loading")!;
+mountLoader(loading.querySelector<HTMLElement>(".hb-skel")!);
+const progress = document.querySelector<HTMLElement>(".hb-progress")!;
+const panel = document.querySelector<HTMLElement>(".hb-panel")!;
+const { viewport: panelScroll, body: panelBody } = mountPanelScroll(panel.querySelector<HTMLElement>(".hb-panel-scroll")!);
 const still = matchMedia("(prefers-reduced-motion: reduce)");
 
 // ---------- scene ----------
@@ -66,7 +66,7 @@ ring.rotation.x = Math.PI / 2;
 const shadowTex = (() => {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
-  const g = c.getContext("2d");
+  const g = c.getContext("2d")!;
   const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
   grad.addColorStop(0, "rgba(40,40,30,0.42)");
   grad.addColorStop(0.55, "rgba(40,40,30,0.14)");
@@ -109,8 +109,14 @@ const MAT = {
 // Selection colours, in solid paint rather than fades: the chosen region is washed light yellow and the
 // exact structure that was clicked turns red. A hovered structure gets a lighter yellow. Each vertex
 // carries its structure's number in the merged mesh, which the shader compares with the picked one.
-const highlightable = (mat) => {
-  const u = (mat.userData.hl = { uRegion: { value: 0 }, uPick: { value: -1 }, uHover: { value: -1 } });
+interface Highlight {
+  uRegion: { value: number };
+  uPick: { value: number };
+  uHover: { value: number };
+  target: number; // where uRegion is easing to
+}
+const highlightable = <M extends THREE.Material>(mat: M): M => {
+  const u: Highlight = (mat.userData.hl = { uRegion: { value: 0 }, uPick: { value: -1 }, uHover: { value: -1 }, target: 0 });
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
@@ -133,26 +139,46 @@ const highlightable = (mat) => {
 // ---------- models ----------
 // Two bodies share one viewer: each GLB is merged per layer × region and carries a triangle-range →
 // structure-name table, turned here into a per-vertex structure number for the highlight.
-const FILES = { male: "body.glb", female: "body-female.glb" };
-const models = {};
-let sex = "male";
-let meshes = [];
-let names = [];
+type Sex = "male" | "female";
+type Layer = keyof typeof MAT;
+interface MeshInfo {
+  layer: Layer;
+  region: string;
+  starts: number[]; // first triangle of each structure
+  ids: number[]; // each structure's index into the name table
+}
+type BodyMesh = THREE.Mesh<THREE.BufferGeometry, THREE.Material> & { userData: MeshInfo };
+interface Model {
+  group: THREE.Group | null;
+  meshes: BodyMesh[];
+  names: string[];
+  promise?: Promise<Model>;
+}
+interface Hit {
+  mesh: BodyMesh;
+  part: number;
+}
+const FILES: Record<Sex, string> = { male: "body.glb", female: "body-female.glb" };
+const models: Partial<Record<Sex, Model>> = {};
+let sex: Sex = "male";
+let meshes: BodyMesh[] = [];
+let names: string[] = [];
 const layersOn = new Set(["skin", "muscle", "bone"]);
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-function loadModel(which) {
-  if (models[which]) return models[which].promise;
-  const m = (models[which] = { group: null, meshes: [], names: [] });
-  m.promise = new Promise((resolve, reject) =>
+function loadModel(which: Sex): Promise<Model> {
+  if (models[which]) return models[which].promise!;
+  const m: Model = (models[which] = { group: null, meshes: [], names: [] });
+  m.promise = new Promise<Model>((resolve, reject) =>
     loader.load(
       `${import.meta.env.BASE_URL}${FILES[which]}`,
       (gltf) => {
         m.names = gltf.parser.json.extras?.names ?? [];
-        gltf.scene.traverse((o) => {
-          if (!o.isMesh) return;
-          const { layer, region, parts } = o.userData;
+        gltf.scene.traverse((obj) => {
+          if (!(obj as THREE.Mesh).isMesh) return;
+          const o = obj as BodyMesh;
+          const { layer, region, parts } = o.userData as unknown as { layer: Layer; region: string; parts: [start: number, id: number][] };
           const geo = o.geometry;
           // Vertex colours are stored as sRGB bytes; light them in linear space.
           const col = geo.getAttribute("color");
@@ -166,7 +192,7 @@ function loadModel(which) {
           if (layer !== "skin") {
             // Tag each vertex with its structure's number. This must happen before the BVH is built,
             // because three-mesh-bvh reorders the triangles in the index buffer.
-            const idx = geo.index.array;
+            const idx = geo.index!.array;
             const part = new Float32Array(geo.getAttribute("position").count);
             for (let k = 0; k < starts.length; k++)
               for (let i = starts[k] * 3, end = (k + 1 < starts.length ? starts[k + 1] : idx.length / 3) * 3; i < end; i++) part[idx[i]] = k;
@@ -193,9 +219,9 @@ function loadModel(which) {
   return m.promise;
 }
 
-async function showSex(which) {
+async function showSex(which: Sex) {
   sex = which;
-  document.querySelectorAll("[data-sex]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.sex === which)));
+  document.querySelectorAll<HTMLElement>("[data-sex]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.sex === which)));
   figTitle.textContent = which === "female" ? "Female body" : "Male body";
   document.body.dataset.sex = which;
   if (!models[which]?.group) {
@@ -218,27 +244,27 @@ async function showSex(which) {
   }
   if (sex !== which) return; // switched again while loading
   body.clear();
-  body.add(m.group);
+  body.add(m.group!);
   meshes = m.meshes;
   names = m.names;
   hovered = null;
   hoverHit = null;
-  chips.querySelectorAll(".hb-chip").forEach((b) => (b.textContent = contentOf(b.dataset.region).title));
+  chips.querySelectorAll<HTMLElement>(".hb-chip").forEach((b) => (b.textContent = contentOf(b.dataset.region!).title));
   loading.hidden = true;
   applyLayers();
   if (selected) open(selected, "");
 }
-document.querySelectorAll("[data-sex]").forEach((b) => b.addEventListener("click", () => b.dataset.sex !== sex && showSex(b.dataset.sex)));
+document.querySelectorAll<HTMLElement>("[data-sex]").forEach((b) => b.addEventListener("click", () => b.dataset.sex !== sex && showSex(b.dataset.sex as Sex)));
 
 function applyLayers() {
   for (const m of meshes) m.visible = layersOn.has(m.userData.layer === "lung" ? "organ" : m.userData.layer);
   tip.hidden = true;
-  document.querySelectorAll("[data-layer]").forEach((b) => b.setAttribute("aria-pressed", String(layersOn.has(b.dataset.layer))));
+  document.querySelectorAll<HTMLElement>("[data-layer]").forEach((b) => b.setAttribute("aria-pressed", String(layersOn.has(b.dataset.layer!))));
   paint();
 }
-document.querySelectorAll("[data-layer]").forEach((b) =>
+document.querySelectorAll<HTMLElement>("[data-layer]").forEach((b) =>
   b.addEventListener("click", () => {
-    const l = b.dataset.layer;
+    const l = b.dataset.layer!;
     layersOn.has(l) ? layersOn.delete(l) : layersOn.add(l);
     applyLayers();
   }),
@@ -248,27 +274,28 @@ document.querySelectorAll("[data-layer]").forEach((b) =>
 const raycaster = new THREE.Raycaster();
 raycaster.firstHitOnly = true;
 const ndc = new THREE.Vector2();
-function pick(clientX, clientY) {
+function pick(clientX: number, clientY: number): { region: string | null; structure: string; mesh: BodyMesh; part: number } | null {
   const r = canvas.getBoundingClientRect();
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   const targets = meshes.filter((m) => m.visible && m.userData.layer !== "skin");
   const hit = raycaster.intersectObjects(targets, false)[0];
   if (!hit) return null;
-  const { region, ids } = hit.object.userData;
-  const part = hit.object.geometry.getAttribute("part").getX(hit.face.a);
-  return { region: CONTENT[region] ? region : null, structure: names[ids[part]] ?? "", mesh: hit.object, part };
+  const mesh = hit.object as BodyMesh;
+  const { region, ids } = mesh.userData;
+  const part = mesh.geometry.getAttribute("part").getX(hit.face!.a);
+  return { region: CONTENT[region] ? region : null, structure: names[ids[part]] ?? "", mesh, part };
 }
 
-let hovered = null; // region id under the pointer
-let hoverHit = null; // { mesh, part } under the pointer
-let selected = null;
+let hovered: string | null = null; // region id under the pointer
+let hoverHit: Hit | null = null; // structure under the pointer
+let selected: string | null = null;
 let selectedStructure = "";
-let selectedHit = null;
+let selectedHit: Hit | null = null;
 function paint() {
   for (const m of meshes) {
     if (m.userData.layer === "skin") continue;
-    const hl = m.material.userData.hl;
+    const hl: Highlight = m.material.userData.hl;
     hl.target = selected && m.userData.region === selected ? 1 : 0;
     hl.uPick.value = selectedHit?.mesh === m ? selectedHit.part : -1;
     hl.uHover.value = hoverHit?.mesh === m && !(selectedHit?.mesh === m && selectedHit.part === hoverHit.part) ? hoverHit.part : -1;
@@ -276,43 +303,43 @@ function paint() {
 }
 
 // ---------- panel ----------
-const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const contentOf = (id) => {
+const esc = (t: string) => String(t).replace(/[&<>"]/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }) as Record<string, string>)[c]);
+const contentOf = (id: string): Region => {
   const c = CONTENT[id];
   return sex === "female" && c.female ? { ...c, ...c.female } : c;
 };
-const chips = document.querySelector(".hb-chips");
+const chips = document.querySelector<HTMLElement>(".hb-chips")!;
 chips.innerHTML = Object.entries(CONTENT).map(([id, c]) => `<button class="hb-chip" type="button" data-region="${id}">${esc(c.title)}</button>`).join("");
-chips.querySelectorAll(".hb-chip").forEach((chip) => chip.addEventListener("click", () => (selected === chip.dataset.region ? close() : open(chip.dataset.region, ""))));
+chips.querySelectorAll<HTMLElement>(".hb-chip").forEach((chip) => chip.addEventListener("click", () => (selected === chip.dataset.region ? close() : open(chip.dataset.region!, ""))));
 
-const voiceStore = mountSelect(panel.querySelector(".hb-voice-host"), { label: "Voice", onChange: (key) => listener.setVoice(key) });
+const voiceStore = mountSelect(panel.querySelector<HTMLElement>(".hb-voice-host")!, { label: "Voice", onChange: (key) => listener.setVoice(key) });
 const listener = createListener({
   root: panelBody,
   scroller: panelScroll,
-  player: panel.querySelector(".hb-player"),
+  player: panel.querySelector<HTMLElement>(".hb-player")!,
   onVoices: (items, value) => voiceStore.set({ items, value }),
 });
-mountSelect(panel.querySelector(".hb-rate-host"), {
+mountSelect(panel.querySelector<HTMLElement>(".hb-rate-host")!, {
   label: "Reading speed",
   minWidth: "min-w-24",
   items: ["0.8", "1", "1.2", "1.5"].map((v) => ({ value: v, label: `${v}×` })),
   value: listener.rate,
   onChange: (v) => listener.setRate(v),
 });
-const setMode = (mode) => {
+const setMode = (mode: string) => {
   panel.dataset.mode = mode;
-  panel.querySelectorAll(".hb-modes [data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+  panel.querySelectorAll<HTMLElement>(".hb-modes [data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
   if (mode === "listen") listener.state === "idle" && listener.play();
   else listener.stop();
 };
-panel.querySelectorAll(".hb-modes [data-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+panel.querySelectorAll<HTMLElement>(".hb-modes [data-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode!)));
 
-function open(id, structure, hit = null) {
+function open(id: string, structure: string, hit: Hit | null = null) {
   selected = id;
   selectedStructure = structure;
   selectedHit = hit;
   const c = contentOf(id);
-  const say = (s) => esc(s.replace(/\s+/g, " "));
+  const say = (s: string) => esc(s.replace(/\s+/g, " "));
   const factsSay = c.facts.map(([k, v]) => `${k}: ${v}.`).join(" ");
   const partsSay = `What's inside. ${c.parts.join(". ")}.`;
   panelBody.innerHTML = `
@@ -329,7 +356,7 @@ function open(id, structure, hit = null) {
   panelScroll.scrollTop = 0;
   panel.setAttribute("aria-hidden", "false");
   document.body.toggleAttribute("data-panel", true);
-  chips.querySelectorAll(".hb-chip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.region === id)));
+  chips.querySelectorAll<HTMLElement>(".hb-chip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.region === id)));
   listener.load({ autoplay: panel.dataset.mode === "listen" });
   paint();
 }
@@ -343,12 +370,12 @@ function close() {
   chips.querySelectorAll(".hb-chip").forEach((b) => b.setAttribute("aria-pressed", "false"));
   paint();
 }
-panel.querySelector(".hb-close").addEventListener("click", close);
+panel.querySelector(".hb-close")!.addEventListener("click", close);
 addEventListener("keydown", (e) => e.key === "Escape" && selected && close());
 
 // ---------- pointer: pointer cursor over parts, click selects, drag turns and moves ----------
 // Sideways drag turns the body; up/down drag slides the view along it, so the body follows the mouse.
-let down = null;
+let down: { x: number; y: number; lx: number; ly: number; id: number; moved?: boolean } | null = null;
 canvas.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
   down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, id: e.pointerId };
@@ -380,7 +407,7 @@ canvas.addEventListener("pointermove", (e) => {
     tip.style.transform = `translate(${e.clientX - r.left + 14}px, ${e.clientY - r.top + 14}px)`;
     tip.hidden = false;
   } else tip.hidden = true;
-  const next = id ? { mesh: hit.mesh, part: hit.part } : null;
+  const next = hit && id ? { mesh: hit.mesh, part: hit.part } : null;
   if (id !== hovered || next?.mesh !== hoverHit?.mesh || next?.part !== hoverHit?.part) {
     hovered = id;
     hoverHit = next;
@@ -409,13 +436,13 @@ canvas.addEventListener("pointerleave", () => {
 
 // ---------- view height: slide the camera and its target up and down the body ----------
 const LIFT = { min: 0.1, max: 1.62 };
-let liftGoal = null;
-const moveLift = (y) => {
+let liftGoal: number | null = null;
+const moveLift = (y: number) => {
   const dy = Math.min(LIFT.max, Math.max(LIFT.min, y)) - controls.target.y;
   controls.target.y += dy;
   camera.position.y += dy;
 };
-const nudge = (dir) => (liftGoal = Math.min(LIFT.max, Math.max(LIFT.min, (liftGoal ?? controls.target.y) + dir * 0.2)));
+const nudge = (dir: number) => (liftGoal = Math.min(LIFT.max, Math.max(LIFT.min, (liftGoal ?? controls.target.y) + dir * 0.2)));
 stage.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") body.rotation.y += e.key === "ArrowLeft" ? -0.26 : 0.26;
   else if (e.key === "ArrowUp" || e.key === "ArrowDown") nudge(e.key === "ArrowUp" ? 1 : -1);
@@ -453,7 +480,7 @@ renderer.setAnimationLoop((now) => {
   last = now;
   const k = still.matches ? 1 : 1 - Math.exp(-dt * 9);
   for (const m of meshes) {
-    const hl = m.material.userData.hl;
+    const hl: Highlight | undefined = m.material.userData.hl;
     if (hl) hl.uRegion.value += (hl.target - hl.uRegion.value) * k;
   }
   if (liftGoal !== null) {
@@ -471,6 +498,12 @@ renderer.setAnimationLoop((now) => {
 
 showSex("male");
 
+// A handle for the headless-Chrome check scripts.
+declare global {
+  interface Window {
+    __hb: Record<string, unknown>;
+  }
+}
 window.__hb = {
   open, close, pick, renderer, camera, controls, body, layersOn, applyLayers, showSex, listener, setMode,
   get ready() { return meshes.length > 0 && !!models[sex]?.group; },

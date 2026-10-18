@@ -3,6 +3,7 @@
 // block is highlighted while it is spoken, the current word is marked where the browser reports word
 // boundaries, and clicking a block jumps there.
 import EasySpeech from "easy-speech";
+import type { SelectItemData } from "./ui.tsx";
 
 const WORD = "hb-word";
 const RATE_KEY = "hb-rate", VOICE_KEY = "hb-voice";
@@ -12,35 +13,49 @@ const RATE_KEY = "hb-rate", VOICE_KEY = "hb-voice";
 const PREFERRED = ["Google UK English Female", "Google UK English Male"];
 const FEMALE = /female|samantha|karen|moira|serena|tessa|victoria|zira|jenny|aria|libby|sonia|susan|hazel|kate|fiona/i;
 const MALE = /\bmale|daniel|alex\b|fred|oliver|arthur|david|guy|ryan|george|thomas|james|mark|aaron|rishi/i;
-function pickVoices(all) {
+interface VoiceChoice {
+  voice: SpeechSynthesisVoice;
+  label: string;
+  key: string;
+}
+function pickVoices(all: SpeechSynthesisVoice[]): VoiceChoice[] {
   const en = all.filter((v) => /^en\b|^en[-_]/i.test(v.lang));
-  const google = PREFERRED.map((n) => en.find((v) => v.name === n)).filter(Boolean);
+  const google = PREFERRED.map((n) => en.find((v) => v.name === n)).filter((v) => v !== undefined);
   if (google.length === 2) return google.map((v, i) => ({ voice: v, label: `${v.name} · ${v.lang}`, key: i ? "male" : "female" }));
-  const gb = (v) => (/en[-_]GB/i.test(v.lang) ? 0 : 1);
+  const gb = (v: SpeechSynthesisVoice) => (/en[-_]GB/i.test(v.lang) ? 0 : 1);
   const female = en.filter((v) => FEMALE.test(v.name) && !/\bmale/i.test(v.name.replace(/female/i, ""))).sort((a, b) => gb(a) - gb(b))[0];
   const male = en.filter((v) => MALE.test(v.name) && !/female/i.test(v.name)).sort((a, b) => gb(a) - gb(b))[0];
-  const out = [];
+  const out: VoiceChoice[] = [];
   if (female) out.push({ voice: female, label: `${female.name} · ${female.lang}`, key: "female" });
   if (male) out.push({ voice: male, label: `${male.name} · ${male.lang}`, key: "male" });
   if (!out.length && en[0]) out.push({ voice: en[0], label: `${en[0].name} · ${en[0].lang}`, key: "default" });
   return out;
 }
 
-export function createListener({ root, scroller, player, onVoices }) {
-  const playBtn = player.querySelector("[data-say='play']");
-  const stopBtn = player.querySelector("[data-say='stop']");
-  const count = player.querySelector("[data-say='count']");
-  const note = player.querySelector("[data-say='note']");
+type State = "idle" | "playing" | "paused";
+export interface ListenerOptions {
+  root: HTMLElement;
+  scroller: HTMLElement;
+  player: HTMLElement;
+  onVoices?: (items: SelectItemData[], value: string) => void;
+}
+export type Listener = ReturnType<typeof createListener>;
 
-  let ready = null; // init promise
-  let voices = []; // [{ voice, label, key }]
+export function createListener({ root, scroller, player, onVoices }: ListenerOptions) {
+  const playBtn = player.querySelector<HTMLButtonElement>("[data-say='play']")!;
+  const stopBtn = player.querySelector<HTMLButtonElement>("[data-say='stop']")!;
+  const count = player.querySelector<HTMLElement>("[data-say='count']")!;
+  const note = player.querySelector<HTMLElement>("[data-say='note']")!;
+
+  let ready: Promise<boolean> | null = null; // init promise
+  let voices: VoiceChoice[] = [];
   let voiceKey = localStorage.getItem(VOICE_KEY) || "female";
-  let blocks = [];
+  let blocks: HTMLElement[] = [];
   let at = 0;
-  let state = "idle"; // idle | playing | paused
+  let state: State = "idle";
   let run = 0; // bumps on every stop/jump so a stale utterance can't advance the queue
 
-  let rate = localStorage.getItem(RATE_KEY) ?? "1";
+  let rate: string = localStorage.getItem(RATE_KEY) ?? "1";
 
   function init() {
     if (ready) return ready;
@@ -48,7 +63,7 @@ export function createListener({ root, scroller, player, onVoices }) {
     ready = EasySpeech.init({ maxTimeout: 5000, interval: 250, quiet: true })
       .then(() => {
         voices = pickVoices(EasySpeech.voices());
-        if (!voices.some((v) => v.key === voiceKey)) voiceKey = voices[0]?.key;
+        if (!voices.some((v) => v.key === voiceKey)) voiceKey = voices[0]?.key ?? voiceKey;
         onVoices?.(voices.map((v) => ({ value: v.key, label: v.label })), voiceKey);
         return voices.length > 0;
       })
@@ -56,10 +71,10 @@ export function createListener({ root, scroller, player, onVoices }) {
     return ready;
   }
 
-  const textOf = (el) => el.dataset.say || el.textContent.replace(/\s+/g, " ").trim();
-  const wordable = (el) => !el.dataset.say;
+  const textOf = (el: HTMLElement) => el.dataset.say || el.textContent.replace(/\s+/g, " ").trim();
+  const wordable = (el: HTMLElement) => !el.dataset.say;
 
-  function mark(i) {
+  function mark(i: number) {
     blocks.forEach((b, k) => b.classList.toggle("is-saying", k === i && state !== "idle"));
     if (state !== "idle" && blocks[i]) {
       // Keep the spoken block in view inside the panel's scroll area.
@@ -68,16 +83,16 @@ export function createListener({ root, scroller, player, onVoices }) {
     }
     count.textContent = blocks.length ? `${Math.min(i + 1, blocks.length)} / ${blocks.length}` : "";
   }
-  function markWord(el, start, len) {
+  function markWord(el: HTMLElement, start: number, len: number) {
     if (!window.CSS?.highlights || !wordable(el)) return;
     // Walk text nodes to turn the utterance's char offset into a DOM range. The spoken text is the
     // whitespace-collapsed textContent, which matches the DOM text for these plain blocks.
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    let n, off = 0;
+    let n: Text | null, off = 0;
     const range = new Range();
     let started = false;
     const end = start + (len || 1);
-    while ((n = walker.nextNode())) {
+    while ((n = walker.nextNode() as Text | null)) {
       const t = n.data.replace(/\s+/g, " ");
       if (!started && start < off + t.length) (range.setStart(n, Math.max(0, start - off)), (started = true));
       if (started && end <= off + t.length) {
@@ -93,12 +108,12 @@ export function createListener({ root, scroller, player, onVoices }) {
   function render() {
     player.dataset.state = state;
     playBtn.setAttribute("aria-label", state === "playing" ? "Pause" : "Play");
-    playBtn.querySelector("span").textContent = state === "playing" ? "Pause" : state === "paused" ? "Resume" : "Play";
+    playBtn.querySelector("span")!.textContent = state === "playing" ? "Pause" : state === "paused" ? "Resume" : "Play";
     stopBtn.disabled = state === "idle";
     mark(at);
   }
 
-  async function speakFrom(i) {
+  async function speakFrom(i: number) {
     const token = ++run;
     EasySpeech.cancel();
     clearWord();
@@ -163,12 +178,12 @@ export function createListener({ root, scroller, player, onVoices }) {
   }
 
   // Load a freshly rendered panel. Blocks are the elements marked data-block, in reading order.
-  function load({ autoplay } = {}) {
+  function load({ autoplay = false }: { autoplay?: boolean } = {}) {
     stop();
-    blocks = [...root.querySelectorAll("[data-block]")];
+    blocks = [...root.querySelectorAll<HTMLElement>("[data-block]")];
     blocks.forEach((b, i) =>
       b.addEventListener("click", (e) => {
-        if (!player.closest("[data-mode='listen']") || e.target.closest("a")) return;
+        if (!player.closest("[data-mode='listen']") || (e.target as Element).closest("a")) return;
         speakFrom(i);
       }),
     );
@@ -178,12 +193,12 @@ export function createListener({ root, scroller, player, onVoices }) {
 
   playBtn.addEventListener("click", play);
   stopBtn.addEventListener("click", stop);
-  function setRate(value) {
+  function setRate(value: string) {
     rate = value;
     localStorage.setItem(RATE_KEY, value);
     if (state === "playing") speakFrom(at);
   }
-  function setVoice(key) {
+  function setVoice(key: string) {
     voiceKey = key;
     localStorage.setItem(VOICE_KEY, key);
     if (state === "playing") speakFrom(at);

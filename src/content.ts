@@ -2,7 +2,20 @@
 // Facts are drawn from innerbody.com (see each entry's `source`), with gaps
 // filled from standard textbook anatomy (Gray's Anatomy, OpenStax A&P).
 
-export const CONTENT = {
+export interface Region {
+  title: string;
+  system: string;
+  color: string;
+  summary: string;
+  how: string[];
+  parts: string[];
+  facts: [label: string, value: string][];
+  source: string;
+  // A female version replaces any of these fields when the female body is shown.
+  female?: Partial<Omit<Region, "female">>;
+}
+
+export const CONTENT: Record<string, Region> = {
   head: {
     title: "Head & Brain",
     system: "Nervous · Skeletal",
