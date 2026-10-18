@@ -15,6 +15,7 @@ Built with [Anatomy](https://github.com/wheresryan22/anatomy), the Claude skill 
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (deploy anywhere)
+SITE_URL=https://your.site npm run build  # same, with an absolute og:image URL for social cards
 npm run typecheck  # TypeScript, for the app (src/) and the model tools (tools/)
 ```
 
