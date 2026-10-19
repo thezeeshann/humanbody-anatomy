@@ -9,6 +9,14 @@ A single-page interactive 3D anatomy model. A full adult body, male or female, s
 
 Built with [Anatomy](https://github.com/wheresryan22/anatomy), the Claude skill for crafted, interactive figures. The first version (in `legacy-iso/`) is an Anatomy isometric figure, and the current one keeps its figure card (Fig 1, title, hint, live readout) and is checked with its headless-Chrome scripts (`legacy-iso/scripts/drive.mjs`).
 
+## Preview
+
+| Male | Female |
+| --- | --- |
+| ![The male body with skin, muscles and skeleton on](docs/screenshots/male.png) | ![The female body, fitted to the Visible Human Female](docs/screenshots/female.png) |
+| **Click a part to read about it** | **Peel away the layers** |
+| ![Linea alba clicked: the abdomen turns light yellow and the panel explains digestion](docs/screenshots/panel.png) | ![Skin and muscles off, showing the skeleton, organs and vessels](docs/screenshots/layers.png) |
+
 ## Run
 
 ```sh
